@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "pythonproject1"
+version = "0.1.0"
+description = ""
+authors = ["arystambek-dimash <arystambekdimash005@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+diffusers = "^0.30.3"
+fastapi = "^0.115.2"
+pydantic = "^2.9.2"
+pydantic-settings = "^2.6.0"
+sqlalchemy = "^2.0.36"
+gradio-client = "^1.4.0"
+openai = "^1.52.0"
+uvicorn = "^0.32.0"
+python-multipart = "^0.0.12"
+pillow = "^11.0.0"
+redis = "^5.1.1"
+aioredis = "^2.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
