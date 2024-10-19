@@ -27,10 +27,11 @@ async def query(payload: Dict[str, Any]) -> bytes:
             raise
 
 
-async def image_generator(inputs: str, image_id: str, index: int) -> None:
+async def image_generator(inputs: str, input_image: str, image_id: str, index: int) -> None:
     prompt = (
-        f"{inputs}. Generate a high-quality photo of the object against a plain white background, "
+        f"input: {inputs}. Generate a high-quality photo of the object against a plain white background, "
         "focusing solely on the object without any additional elements."
+        "generate exactly input detail"
     )
     image_bytes = await query({"inputs": prompt})
 

@@ -24,7 +24,7 @@ PROMPT = """
 ```
 
 Note: json values должно быть на русском языке
-Note: Please generate AI representations of various components. Provide the name_to_prompt in English and include a brief description for each one so the AI understands what object to generate. For example, you might describe a component as "a computer monitor screen" to indicate that it refers to a display device.
+Note: Please generate AI representations of various components. Provide the name_to_prompt in English and include a brief description for each one so the AI understands what object to generate. For example, you might describe a component as "a computer monitor screen, a computer stand holder (u should describe more detailing)" to indicate that it refers to a display device.
 """
 
 

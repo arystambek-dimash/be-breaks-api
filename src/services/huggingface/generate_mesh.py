@@ -1,20 +1,20 @@
 from os import path
 from random import randint
 
-from gradio_client import Client
+from gradio_client import Client, handle_file
 import gradio_client
 
 from src.config import settings
 
 MESH_SPACE = settings.HUGGINGFACE_SPACE_NAME
 
-client = Client(MESH_SPACE, hf_token=settings.HUGGING_FACE_TOKEN)
+client = Client(MESH_SPACE)
 
 
 def check_input_image(file_url):
     try:
         result = client.predict(
-            gradio_client.handle_file(file_url),
+            handle_file(file_url),
             api_name="/check_input_image"
         )
     except Exception as err:
@@ -38,7 +38,7 @@ def preprocess(file_url, foreground_ratio):
     return result
 
 
-def generate(file_url: str):
+def generate(file_url):
     print("Making 3D model:")
 
     try:

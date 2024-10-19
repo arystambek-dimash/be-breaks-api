@@ -91,6 +91,7 @@ async def router_describe_image(
             background_tasks.add_task(
                 generate_image_and_model,
                 _object.get("name_to_prompt"),
+                response.get("name_of_item"),
                 image_id,
                 idx,
             )
