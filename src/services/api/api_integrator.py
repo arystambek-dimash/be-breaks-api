@@ -1,2 +1,0 @@
-class ApiIntegrator:
-    pass

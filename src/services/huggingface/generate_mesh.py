@@ -7,37 +7,27 @@ import gradio_client
 from src.config import settings
 
 MESH_SPACE = settings.HUGGINGFACE_SPACE_NAME
-SD3M_SPACE = settings.SD3M_SPACE_NAME
 
-
-def init_client(is_hard=False):
-    if not is_hard:
-        return Client("TencentARC/InstantMesh")
-    space_name = MESH_SPACE + str(randint(0, 4))
-    print("Space name: ", space_name)
-    client = Client(space_name, hf_token=settings.HUGGING_FACE_TOKEN)
-    return client
+client = Client(MESH_SPACE, hf_token=settings.HUGGING_FACE_TOKEN)
 
 
 def check_input_image(file_url):
-    client = init_client()
     try:
         result = client.predict(
             gradio_client.handle_file(file_url),
             api_name="/check_input_image"
         )
     except Exception as err:
-        print("Check: ", err)
+        print("Check Input Image Error:", err)
         return False
 
     if len(result) != 0:
-        print(result)
+        print("Input image check failed:", result)
         return False
     return True
 
 
 def preprocess(file_url, foreground_ratio):
-    client = init_client()
     result = client.predict(
         gradio_client.handle_file(file_url),
         True,  # bool  in 'Remove Background' Checkbox component
@@ -52,7 +42,6 @@ def generate(file_url: str):
     print("Making 3D model:")
 
     try:
-        client = init_client(is_hard=True)
         result = client.predict(
             gradio_client.handle_file(file_url),
             sample_steps=75,

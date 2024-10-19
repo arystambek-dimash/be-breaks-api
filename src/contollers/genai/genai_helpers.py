@@ -6,7 +6,6 @@ from src.services.genai.openai import get_image_details
 
 
 async def regenerate_description(redis_client, image_hash, image_id, contents):
-    """Helper function to regenerate description"""
     response = await get_image_details(contents)
 
     if response is None:
