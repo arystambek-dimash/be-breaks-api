@@ -3,6 +3,8 @@ import io
 from typing import Any, Dict
 from PIL import Image
 import httpx
+from rembg import remove
+
 from src.config import settings, MEDIA_DIR
 
 API_URL = "https://api-inference.huggingface.co/models/renderartist/toyboxflux"
@@ -27,18 +29,23 @@ async def query(payload: Dict[str, Any]) -> bytes:
             raise
 
 
-async def image_generator(inputs: str, input_image: str, image_id: str, index: int) -> None:
+async def generate_image(inputs: str, image_id: str, index: int) -> str:
     prompt = (
-        f"input: {inputs}. Generate a high-quality photo of the object against a plain white background, "
+        f"{inputs}. Generate a high-quality photo of the object against a plain white background, "
         "focusing solely on the object without any additional elements."
-        "generate exactly input detail"
+        "Generate the component exactly"
     )
     image_bytes = await query({"inputs": prompt})
 
     image = Image.open(io.BytesIO(image_bytes))
+    image = remove(image)
 
     filename = f"{image_id}_{index}.png"
 
     image_path = os.path.join(MEDIA_DIR, filename)
 
     image.save(image_path)
+
+    image_url = f"/media/{filename}"
+
+    return image_url

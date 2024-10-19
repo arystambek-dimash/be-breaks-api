@@ -1,5 +1,4 @@
 from os import path
-from random import randint
 
 from gradio_client import Client, handle_file
 import gradio_client
@@ -11,7 +10,7 @@ MESH_SPACE = settings.HUGGINGFACE_SPACE_NAME
 client = Client(MESH_SPACE)
 
 
-def check_input_image(file_url):
+async def check_input_image(file_url):
     try:
         result = client.predict(
             handle_file(file_url),
@@ -27,7 +26,7 @@ def check_input_image(file_url):
     return True
 
 
-def preprocess(file_url, foreground_ratio):
+async def preprocess(file_url, foreground_ratio):
     result = client.predict(
         gradio_client.handle_file(file_url),
         True,  # bool  in 'Remove Background' Checkbox component
@@ -38,7 +37,7 @@ def preprocess(file_url, foreground_ratio):
     return result
 
 
-def generate(file_url):
+async def generate(file_url):
     print("Making 3D model:")
 
     try:

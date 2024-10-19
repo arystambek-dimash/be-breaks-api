@@ -1,28 +1,27 @@
-import json
-import os
-import time
-
-from src.config import MEDIA_DIR
-from src.services.aws.s3 import generate_key, upload_file
-from src.services.huggingface.generate_image import image_generator
-from src.services.huggingface.generate_mesh import check_input_image, preprocess, generate
-from src.services.redis.config import get_redis_client
-
 import asyncio
 import json
 import os
-import time
+import logging
 
 from src.config import MEDIA_DIR
 from src.services.aws.s3 import generate_key, upload_file
-from src.services.huggingface.generate_image import image_generator
+from src.services.genai.openai import generate_image
 from src.services.huggingface.generate_mesh import check_input_image, preprocess, generate
 from src.services.redis.config import get_redis_client
+from src.worker import celery_app
+
+# Set up the logger
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
-async def generate_image_and_model(prompt: str, input_image: str, image_id: str, idx: int):
+@celery_app.task
+def generate_image_and_model_task(prompt: str, image_id: str, idx: int):
+    loop = asyncio.get_event_loop()
     try:
-        await image_generator(prompt, input_image, image_id, idx)
+        logger.info(f"Task started for image_id: {image_id}, component index: {idx}, prompt: {prompt}")
+        image_url = loop.run_until_complete(generate_image(prompt, image_id, idx))
+        logger.info(f"Image generated successfully: {image_url}")
 
         image_filename = f"{image_id}_{idx}.png"
         image_path = os.path.join(MEDIA_DIR, image_filename)
@@ -34,72 +33,77 @@ async def generate_image_and_model(prompt: str, input_image: str, image_id: str,
         file_type = "3dmodel"
         model_name = f"{image_id}_{idx}.obj"
 
-        model_url = await process_image_to_3d_model(
-            image_path, author_role, file_type, model_name
-        )
+        # model_url = loop.run_until_complete(
+        #     process_image_to_3d_model(image_path, author_role, file_type, model_name)
+        # )
+        # logger.info(f"3D model generated successfully: {model_url}")
 
-        print(model_url)
-
-        async def update_response_in_redis():
-            redis_client = await get_redis_client()
-            cached_response = await redis_client.get(f"status:{image_id}")
-
-            if cached_response:
-                status_data = json.loads(cached_response)
-                if idx < len(status_data["components"]):
-                    status_data["components"][idx]["object_model"] = model_url
-                    status_data["components"][idx]["status"] = "completed"
-                    await redis_client.set(f"status:{image_id}", json.dumps(status_data))
-            else:
-                raise Exception(f"No cached response found for image_id: {image_id}")
-
-
-        await update_response_in_redis()
+        loop.run_until_complete(update_response_in_redis(image_id, idx, image_url, ""))
+        logger.info(f"Task completed for image_id: {image_id}, component index: {idx}")
 
     except Exception as e:
-        async def update_response_with_error():
-            redis_client = await get_redis_client()
-            cached_response = await redis_client.get(image_id)
-            if cached_response:
-                status_data = json.loads(cached_response)
-                if idx < len(status_data["components"]):
-                    status_data["components"][idx]["status"] = "error"
-                    status_data["components"][idx]["error"] = str(e)
-                    await redis_client.set(image_id, json.dumps(status_data))
-
-        await update_response_with_error()
+        logger.error(f"Error in task for image_id: {image_id}, component index: {idx} - {str(e)}")
+        loop.run_until_complete(update_response_with_error(image_id, idx, str(e)))
 
 
-async def process_image_to_3d_model(image_path: str, author_role: str, file_type: str, name: str) -> str:
-    retries = 5
-    backoff_factor = 2
-    for attempt in range(1, retries + 1):
-        try:
-            if not check_input_image(image_path):
-                raise Exception("Input image check failed.")
+#
+# async def process_image_to_3d_model(image_path: str, author_role: str, file_type: str, name: str) -> str:
+#     retries = 5
+#     backoff_factor = 2
+#     for attempt in range(1, retries + 1):
+#         try:
+#             logger.info(f"Processing image to 3D model (Attempt {attempt}) for file: {image_path}")
+#
+#             if not await check_input_image(image_path):
+#                 raise Exception("Input image check failed.")
+#
+#             preprocessed_image = await preprocess(image_path, foreground_ratio=0.75)
+#             if not preprocessed_image:
+#                 raise Exception("Image preprocessing failed.")
+#
+#             model_path = await generate(preprocessed_image)
+#             if not model_path:
+#                 raise Exception("3D model generation failed.")
+#
+#             s3_key = generate_key(author_role, file_type, name)
+#             model_url = upload_file(model_path, s3_key)
+#             if not model_url:
+#                 raise Exception("Failed to upload 3D model to AWS S3.")
+#
+#             return model_url
+#
+#         except Exception as e:
+#             logger.error(f"Error in 3D model generation: {str(e)}")
+#             if "No GPU is currently available" in str(e) and attempt < retries:
+#                 wait_time = backoff_factor ** (attempt - 1)
+#                 logger.warning(f"No GPU available, retrying in {wait_time} seconds (Attempt {attempt})")
+#                 await asyncio.sleep(wait_time)
+#                 continue
+#             else:
+#                 raise
 
-            preprocessed_image = preprocess(image_path, foreground_ratio=0.75)
-            if not preprocessed_image:
-                raise Exception("Image preprocessing failed.")
 
-            model_path = generate(preprocessed_image)
-            if not model_path:
-                raise Exception("3D model generation failed.")
+async def update_response_in_redis(image_id: str, idx: int, image_url: str, model_url: str):
+    redis_client = await get_redis_client()
+    cached_response = await redis_client.get(f"status:{image_id}")
 
-            s3_key = generate_key(author_role, file_type, name)
-            model_url = upload_file(model_path, s3_key)
-            if not model_url:
-                raise Exception("Failed to upload 3D model to AWS S3.")
+    if cached_response:
+        status_data = json.loads(cached_response)
+        if idx < len(status_data["components"]):
+            status_data["components"][idx]["object_model"] = model_url
+            status_data["components"][idx]["status"] = "completed"
+            status_data["components"][idx]["image_url"] = image_url
+            await redis_client.set(f"status:{image_id}", json.dumps(status_data))
+        logger.info(f"Updated Redis for image_id: {image_id}, component index: {idx}")
 
-            return model_url
 
-        except Exception as e:
-            error_message = str(e)
-            if "No GPU is currently available" in error_message and attempt < retries:
-                wait_time = backoff_factor ** (attempt - 1)
-                print(f"Attempt {attempt} failed due to GPU unavailability. Retrying in {wait_time} seconds...")
-                await asyncio.sleep(wait_time)  # Async sleep
-                continue
-            else:
-                print(f"Attempt {attempt} failed with error: {e}")
-                raise
+async def update_response_with_error(image_id: str, idx: int, error: str):
+    redis_client = await get_redis_client()
+    cached_response = await redis_client.get(f"status:{image_id}")
+    if cached_response:
+        status_data = json.loads(cached_response)
+        if idx < len(status_data["components"]):
+            status_data["components"][idx]["status"] = "error"
+            status_data["components"][idx]["error"] = error
+            await redis_client.set(f"status:{image_id}", json.dumps(status_data))
+        logger.info(f"Updated Redis with error for image_id: {image_id}, component index: {idx}, error: {error}")
