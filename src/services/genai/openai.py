@@ -36,15 +36,15 @@ TEXT_PRMPT = '''
 Объясни важных 5 делати этого компонетно {component}  с объяснением что они делают и как работает.
 Отправь мне ответ в таком формате:
 ```
-    {
+    {{
         "item_components": [
-            {
+            {{
                 "name_of_component": "str",
                 "name_to_prompt": "str"
                 "description_of_component": "str"
-            }
+            }}
         ]
-    }  
+    }}  
 ```
 
 Note: все должно быть на английском

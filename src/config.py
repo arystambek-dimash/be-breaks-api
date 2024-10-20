@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     AWS_REGION: str
     AWS_BUCKET_NAME: str
 
+    REDIS_SERVER: str
+
 
 def get_settings():
     return Settings()

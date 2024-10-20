@@ -7,7 +7,15 @@ from src.config import settings
 
 MESH_SPACE = settings.HUGGINGFACE_SPACE_NAME
 
-client = Client(MESH_SPACE)
+
+def init_client():
+    try:
+        return Client(MESH_SPACE)
+    except Exception as e:
+        print(e)
+
+
+client = init_client()
 
 
 async def check_input_image(file_url):
